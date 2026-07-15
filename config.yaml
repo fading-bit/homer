@@ -1,0 +1,81 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# homer-stylo configuration
+# Every choice that could affect results lives here so runs are reproducible.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Where the source EPUBs live and which poem each is. Add/rename freely.
+# `poem` is a short label used everywhere downstream ("iliad", "odyssey", or an
+# anchor author like "apollonius"). `role` is "homer" or "anchor".
+sources:
+  - path: data/raw/iliad.epub
+    poem: iliad
+    role: homer
+  - path: data/raw/odyssey.epub
+    poem: odyssey
+    role: homer
+  # Anchor corpus (known single-author Homerizing hexameter + other archaic
+  # voices) — used in the calibration phase. Uncomment as you obtain them.
+  # - path: data/raw/argonautica.epub
+  #   poem: apollonius
+  #   role: anchor
+  # - path: data/raw/theogony.epub
+  #   poem: hesiod_theogony
+  #   role: anchor
+
+ingest:
+  # A line shorter than this many characters after cleaning is treated as noise
+  # (page numbers, stray markers) and dropped.
+  min_line_chars: 2
+
+  # Regexes (matched case-insensitively, on a stripped line) that mark the start
+  # of a new book. The first capturing group, if present, is the book label.
+  # Order matters: first match wins. Defaults cover the common EPUB conventions.
+  book_header_patterns:
+    # Greek editions traditionally number the 24 books with Greek letters.
+    # e.g. "Ἰλιάδος Α", "ΟΔΥΣΣΕΙΑΣ β", "ῥαψῳδία Γ"
+    - '^\s*(?:ἰλιάδος|ὀδυσσείας|ιλιαδος|οδυσσειας|ῥαψῳδία|ραψωδια)\s+([α-ωΑ-Ωἀ-ῼ]{1,2})\b'
+    # "BOOK I", "Book 12", "BOOK THE FIRST"
+    - '^\s*book\s+(?:the\s+)?([ivxlcdm]+|\d+|[a-z]+)\b'
+    # Bare Roman numeral heading on its own line: "XIV"
+    - '^\s*([ivxlcdm]{1,6})\s*$'
+    # "Rhapsody 3", "Canto III"
+    - '^\s*(?:rhapsody|canto)\s+([ivxlcdm]+|\d+)\b'
+
+  # Lines matching any of these are dropped as front/back matter or apparatus.
+  drop_line_patterns:
+    - '^\s*(?:page|p\.)\s*\d+\s*$'          # bare page numbers
+    - '^\s*\d{1,4}\s*$'                       # bare line-number gutters
+    - '^\s*(?:the\s+)?(?:end|finis|τέλος)\s*$'
+
+  # Leading in-line markers to strip from the start of a verse line before use
+  # (scholarly editions often prefix every 5th/10th line with its number).
+  strip_leading_patterns:
+    - '^\s*\d{1,4}[\.\)]?\s+'                 # "  100  " or "100. "
+    - '^\s*\[\d{1,4}\]\s*'                    # "[100] "
+
+normalize:
+  # Two text variants are produced for every line so edition-sensitivity can be
+  # tested. `diplomatic` keeps the text as-is (accents, case, elisions).
+  # `normalized` is the aggressive variant used by most feature runs.
+  normalized:
+    lowercase: true
+    strip_accents: true        # remove diacritics (Greek + Latin)
+    strip_punctuation: true
+    resolve_final_sigma: true  # map ς → σ so word-final sigma isn't its own type
+    collapse_whitespace: true
+
+script_detection:
+  # Fraction of *alphabetic* characters that must be Greek (resp. Latin) for a
+  # section to be labelled that script. Between the two thresholds → "mixed".
+  greek_min_fraction: 0.50
+  latin_min_fraction: 0.50
+  # A hard gate: if the whole corpus is below this Greek fraction, the pipeline
+  # prints a loud warning that the stylometry is measuring a translator.
+  translation_warning_below_greek: 0.20
+
+paths:
+  interim_dir: data/interim
+  processed_dir: data/processed
+  tables_dir: outputs/tables
+  figures_dir: outputs/figures
+  matrices_dir: outputs/matrices

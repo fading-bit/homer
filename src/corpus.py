@@ -8,11 +8,11 @@ produces the same tidy line-level table as corpus.py:
 
 Run it:
 
-    python src/corpus_tei.py --config config.yaml
+    python src/corpus.py --config config.yaml
 
 Or with explicit paths:
 
-    python src/corpus_tei.py \
+    python src/corpus.py \
         --iliad  data/raw/iliad_perseus.xml \
         --odyssey data/raw/odyssey_perseus.xml
 
@@ -32,7 +32,7 @@ import yaml
 from lxml import etree
 
 # Re-use helpers from the EPUB ingester.
-from corpus import (
+from helpers import (
     normalize_line,
     script_counts,
     label_script,
