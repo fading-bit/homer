@@ -158,10 +158,11 @@ def change_points(M: np.ndarray, pen: float) -> list[int]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def plot_book(poem, book_no, centers, spans, curve, adj, cps_idx,
-              D, channel, figures_dir):
+              D, channel, figures_dir, voice="all"):
     label = book_label(poem, book_no)
     color = POEM_COLORS[poem]
     cp_lines = [centers[i] for i in cps_idx if i < len(centers)]
+    vtag = "" if voice == "all" else f" [{voice} only]"
 
     fig, (ax1, ax2) = plt.subplots(
         2, 1, figsize=(12, 9), gridspec_kw={"height_ratios": [1, 1.4]})
@@ -195,9 +196,10 @@ def plot_book(poem, book_no, centers, spans, curve, adj, cps_idx,
                   fontsize=10)
     fig.colorbar(im, ax=ax2, shrink=0.7, label="cosine distance")
 
-    fig.suptitle(f"Within-book stylometry: {poem.title()} {book_no}", fontsize=13)
+    fig.suptitle(f"Within-book stylometry: {poem.title()} {book_no}{vtag}", fontsize=13)
     fig.tight_layout(rect=[0, 0, 1, 0.98])
-    return savefig(fig, figures_dir, f"within_{label}")
+    suffix = "" if voice == "all" else f"_{voice}"
+    return savefig(fig, figures_dir, f"within_{label}{suffix}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -205,7 +207,7 @@ def plot_book(poem, book_no, centers, spans, curve, adj, cps_idx,
 # ─────────────────────────────────────────────────────────────────────────────
 
 def analyse_book(df, poem, book_no, cfg_win, figures_dir):
-    window, step, ngram, topk, pen, channel = cfg_win
+    window, step, ngram, topk, pen, channel, voice = cfg_win
     sub = get_book(df, poem, book_no)
     ng_space = char_ngram_space(sub, ngram, topk) if channel == "char" else []
     windows = list(line_windows(sub, window, step))
@@ -215,11 +217,11 @@ def analyse_book(df, poem, book_no, cfg_win, figures_dir):
     cps = change_points(M, pen)
     D = self_distance(M)
     fig_path = plot_book(poem, book_no, centers, spans, curve, adj, cps, D,
-                         channel, figures_dir)
+                         channel, figures_dir, voice=voice)
     cp_lines = [centers[i] for i in cps if i < len(centers)]
     summary = {
         "book": book_label(poem, book_no), "poem": poem, "book_no": book_no,
-        "n_lines": len(sub), "n_windows": len(M),
+        "voice": voice, "n_lines": len(sub), "n_windows": len(M),
         "n_changepoints": len(cp_lines),
         "changepoint_lines": ";".join(map(str, cp_lines)),
         "max_centroid_dist": float(curve.max()),
@@ -240,6 +242,9 @@ def main():
     ap.add_argument("--topk", type=int, default=200, help="char n-gram vocab size")
     ap.add_argument("--pen", type=float, default=5.0, help="PELT penalty (higher = fewer change points; try 2-3 for finer sensitivity)")
     ap.add_argument("--channel", choices=["char", "func"], default="char")
+    ap.add_argument("--voice", choices=["all", "N", "S", "narration", "speech"],
+                    default="all",
+                    help="restrict to narration (N) or speech (S) via lines_voice.parquet")
     args = ap.parse_args()
 
     cfg = yaml.safe_load(Path(args.config).read_text())
@@ -248,8 +253,19 @@ def main():
     tables = root / cfg["paths"]["tables_dir"]
     figures.mkdir(parents=True, exist_ok=True)
     tables.mkdir(parents=True, exist_ok=True)
-    df = pd.read_parquet(root / cfg["paths"]["processed_dir"] / "lines.parquet")
-    cfg_win = (args.window, args.step, args.ngram, args.topk, args.pen, args.channel)
+
+    voice = {"narration": "N", "speech": "S"}.get(args.voice, args.voice)
+    if voice == "all":
+        df = pd.read_parquet(root / cfg["paths"]["processed_dir"] / "lines.parquet")
+    else:
+        vpath = root / cfg["paths"]["processed_dir"] / "lines_voice.parquet"
+        if not vpath.exists():
+            ap.error("lines_voice.parquet not found — run src/speech_split.py first")
+        df = pd.read_parquet(vpath)
+        df = df[df.voice == voice].reset_index(drop=True)
+    vlabel = {"N": "narration", "S": "speech", "all": "all"}[voice]
+    cfg_win = (args.window, args.step, args.ngram, args.topk, args.pen,
+               args.channel, vlabel)
 
     if args.all:
         rows = []
