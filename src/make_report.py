@@ -43,7 +43,6 @@ def build_md(cfg, root) -> str:
     vb = pd.read_csv(tdir / "voice_breakdown.csv")
     calib = pd.read_csv(tdir / "calibration_summary.csv").set_index("work")
     calib_n = pd.read_csv(tdir / "calibration_summary_narration.csv").set_index("work")
-    metre = pd.read_csv(tdir / "metre_summary.csv").set_index("work")
 
     il = df[df.poem == "iliad"]; od = df[df.poem == "odyssey"]
     il_tok = int(il.text_norm.str.split().map(len).sum())
@@ -91,9 +90,9 @@ def build_md(cfg, root) -> str:
     M = []  # markdown chunks
     M.append("# Is Homer One Voice?")
     M.append("### A computational-stylometric investigation of the Iliad and Odyssey")
-    M.append("*Project report · Phases 0–5 (corpus, EDA, within-book analysis, "
-             "narrator/speech split, and a calibrated test for authorial plurality "
-             "across word-frequency and metre) · Fada · July 2026*")
+    M.append("*Project report · Phases 0–4 (corpus, EDA, within-book analysis, "
+             "narrator/speech split, and a calibrated test for authorial plurality) "
+             "· Fada · July 2026*")
     M.append("---")
 
     # Abstract
@@ -116,9 +115,8 @@ def build_md(cfg, root) -> str:
         f"so it is a shift in the narrating voice, not a speech artefact. The project's "
         f"headline comes from a **calibrated test**: measured against Apollonius, "
         f"Quintus and Hesiod, both poems are **more internally variable than any "
-        f"single-author benchmark** (the Iliad most, and robustly across three "
-        f"controls \u2014 length, register via a narration-only rerun, and content via "
-        f"a metrical channel that scans 92\u201395% of lines), yet that variation is "
+        f"single-author benchmark** (the Iliad most, and robustly to both length and "
+        f"register \u2014 the gap widens on narration alone), yet that variation is "
         f"**diffuse, not a clean split** into separable hands. So there is "
         f"more than one Homer in the weak sense \u2014 heterogeneous, layered "
         f"composition beyond what one poet produces \u2014 but not in the strong sense "
@@ -448,39 +446,15 @@ def build_md(cfg, root) -> str:
     M.append(fig("calibration_dispersion_narration.png",
                  "Figure 13. Internal dispersion on narration only: with register held "
                  "constant, both poems sit further above the single-author works."))
-    ilm, odm = metre.loc["Iliad", "internal_dispersion"], metre.loc["Odyssey", "internal_dispersion"]
-    apm, qum = metre.loc["Apollonius", "internal_dispersion"], metre.loc["Quintus", "internal_dispersion"]
-    sr_lo = int(metre["scansion_rate"].min() * 100)
-    sr_hi = int(metre["scansion_rate"].max() * 100)
     M.append(
-        f"The remaining objection is **content** rather than register: even within "
-        f"narration the Iliad ranges over more varied matter (battle, catalogue, "
-        f"ekphrasis, simile, divine council) than the calibrators attempt, and subject "
-        f"matter leaks faintly into word frequencies. This is what **metre** "
-        f"adjudicates, since a poet's distribution of dactyls and spondees is largely "
-        f"independent of what a passage is about. Scanning every line into its "
-        f"dactyl/spondee foot-pattern ({sr_lo}\u2013{sr_hi}% of lines scan) and "
-        f"repeating the dispersion test on these metrical profiles gives the **same "
-        f"verdict on a content-free channel**: the Iliad ({ilm:.2f}) and Odyssey "
-        f"({odm:.2f}) are both more metrically variable than the unified single-author "
-        f"epics Apollonius ({apm:.2f}) and Quintus ({qum:.2f}) \u2014 as varied, in "
-        f"fact, as two distinct Hesiodic poems combined (Figure 14).")
-    M.append(fig("metre_dispersion.png",
-                 "Figure 14. Internal dispersion on metre (dactyl/spondee foot-patterns), "
-                 "a content-free channel. Both poems exceed the unified single-epic "
-                 "level; \u201cHesiod\u201d combines two separate poems."))
-    M.append(
-        "With **register** controlled (the narration-only test) and now **content** "
-        "largely controlled (metre) both pointing the same way, the \u201cone "
-        "versatile hand over varied matter\u201d explanation is substantially "
-        "weakened. The evidence converges: the Iliad and Odyssey carry more internal "
-        "stylistic *and* metrical variability than epics we know to be by a single "
-        "author \u2014 real compositional plurality \u2014 while still not resolving "
-        "into a few cleanly separable hands. Two honest reservations remain: metre is "
-        "not perfectly content-free (formula and dialect choices carry metrical "
-        "shape), and the plurality is diffuse, so this is strong convergent evidence "
-        "for \u201cmany Homers\u201d in the layered, traditional sense rather than a "
-        "demonstration of a countable number of poets.")
+        "What remains, and cannot be settled here, is **content** rather than register: "
+        "even within narration the Iliad ranges over more varied matter (battle, "
+        "catalogue, ekphrasis, simile, divine council) than Apollonius or Quintus "
+        "attempt, and subject matter leaks faintly into word frequencies. Separating "
+        "\u201cmany hands\u201d from \u201cone versatile hand over varied matter\u201d "
+        "is the residual ambiguity; the content-free channels of the plan (metre, "
+        "syntax) are what would adjudicate it. But the register-controlled result "
+        "moves the balance appreciably toward genuine compositional plurality.")
 
     # 7. Limitations
     M.append("## 7  Limitations")
@@ -494,48 +468,48 @@ def build_md(cfg, root) -> str:
         "- **Change-point sensitivity.** The seam detector's output depends on a "
         "penalty and on window resolution; boundaries should be read together with the "
         "continuous curve and heatmap, not as hard claims.\n"
-        "- **Surface forms only.** No lemmatisation, part-of-speech, or syntax yet, so "
-        "morphology and the syntactic signal are unexploited (metre is now used, "
-        "\u00a76); a few particles are ambiguous once accents are stripped.\n"
+        "- **Surface forms only.** No lemmatisation, part-of-speech, syntax, or metre "
+        "yet, so morphology and the orthogonal metrical signal are unexploited; a few "
+        "particles are ambiguous once accents are stripped.\n"
         "- **What calibration can and cannot settle.** [\u00a76.] The calibrated test "
-        "supplies the single-author baseline the project lacked; the register "
-        "objection is answered by the narration-only rerun and the content objection "
-        "by the metrical rerun, both of which keep the two poems above the single-epic "
-        "level. The residual reservations: metre is not perfectly content-free (formula "
-        "and dialect choices carry metrical shape), ambiguous vowels are resolved "
-        "dactyl-first (a uniform bias that cancels in the comparison but is a "
-        "simplification), \u201cHesiod\u201d combines two separate poems, and the "
+        "now supplies the single-author baseline the project lacked, and the "
+        "register objection is answered by repeating it on narration only, which "
+        "widens the gap. The residual it cannot resolve is **content variety**: even "
+        "within narration the Iliad ranges over more varied matter than the "
+        "calibrators, and that leaks faintly into word frequencies \u2014 so \u201cmany "
+        "hands\u201d is not fully separable from \u201cone versatile hand over varied "
+        "matter\u201d without the content-free channels (metre, syntax). The Hesiod "
+        "baseline rests on few chunks (fewer still on narration only), and the "
         "Odyssey's narration is too short for the longest length-matched window.")
 
     # 8. Plan
     M.append("## 8  Plan for continuation")
     M.append(
-        "The narration-only calibration and the metrical test (\u00a76) are now done "
-        "and close the register and content objections; the remaining steps add a "
-        "second content-free channel, locate the passages responsible, and turn the "
+        "The narration-only calibration (\u00a76) is now done and closes the register "
+        "objection; the remaining steps target the content objection and turn the "
         "answer from a verdict into a probability.")
     M.append(
-        "1. **Syntax \u2014 the second content-free channel.** Parse the poems with a "
-        "dependency model (Perseus/CLTK Greek treebanks) and rerun the \u00a76 "
-        "dispersion test on syntactic features (dependency-relation and part-of-speech "
-        "n-grams). Syntax, like metre, is largely content-independent; agreement with "
-        "the metrical result would make the plurality reading very hard to explain "
-        "away as varied subject matter.\n"
+        "1. **Orthogonal, content-free channels \u2014 metre and syntax.** The decisive "
+        "next step. Add hexameter scansion (foot shapes, caesura, bridge violations) "
+        "and dependency-syntax features, and rerun the \u00a76 dispersion test on them. "
+        "Metre and syntax are largely independent of subject matter, so if the Iliad "
+        "and Odyssey are still more internally variable than the single-author works "
+        "on these channels, the \u201cvaried content\u201d explanation falls away and "
+        "the plurality reading is corroborated.\n"
         "2. **Systematic within-narration seam scan.** Extend the Iliad-18 probe to "
         "every book on the narration stratum, cataloguing seams that survive speech "
         "removal and locating the specific passages that drive the elevated "
-        "dispersion \u2014 turning the global \u201cmore variable\u201d result into a "
-        "map of *where*.\n"
-        "3. **More single-author calibrators** (Callimachus' *Hymns*, the *Homeric "
-        "Hymns*, Nonnus) to tighten the baseline and its uncertainty, and to replace "
-        "the two-poem Hesiod reference with unified single works.\n"
+        "dispersion.\n"
+        "3. **More single-author calibrators.** Add further hexameter poets (e.g. "
+        "Callimachus' *Hymns*, the *Homeric Hymns*, Nonnus) to tighten the baseline "
+        "and its uncertainty \u2014 particularly to shore up the thin Hesiod and "
+        "narration-only bases.\n"
         "4. **Elision-aware normalisation + lemmatisation** to remove orthographic "
-        "noise and sharpen the metrical scansion (fewer unscanned lines).\n"
+        "noise and reduce sparsity.\n"
         "5. **Statistical endpoint.** A hierarchical (Dirichlet-process) mixture over "
-        "chunks \u2014 combining the word, metre and syntax channels \u2014 returning a "
-        "posterior over the number of distinguishable voices with a sensitivity "
-        "analysis, so \u201cdiffuse vs. discrete\u201d becomes a calibrated probability "
-        "rather than a verdict.")
+        "chunks returning a posterior over the number of distinguishable voices, with "
+        "a sensitivity analysis \u2014 turning the \u201cdiffuse vs. discrete\u201d "
+        "finding of \u00a76 into a calibrated probability rather than a verdict.")
 
     # References
     M.append("## References")
