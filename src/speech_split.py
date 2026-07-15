@@ -65,28 +65,35 @@ def is_resumption(text_norm: str) -> bool:
     return bool(RESUMPTION_RE.match(text_norm))
 
 
+def tag_lines(norm_lines) -> list[str]:
+    """Tag an ordered sequence of normalised lines as 'N' (narration) or 'S'
+    (speech). Reusable on any hexameter work, not just the parquet."""
+    voice, in_speech = [], False
+    for t in norm_lines:
+        intro = is_intro(t)
+        if in_speech:
+            if is_resumption(t):
+                voice.append("N")          # narrator resumes on this line
+                in_speech = intro           # a new speech may open immediately
+            elif intro:
+                voice.append("N")          # reply frame: narration that closes
+                in_speech = True            # this speech and opens the next
+            else:
+                voice.append("S")
+        else:
+            voice.append("N")               # narration (incl. the intro frame)
+            if intro:
+                in_speech = True
+    return voice
+
+
 def tag_voice(df: pd.DataFrame) -> pd.Series:
     """Walk each book in line order; return a 'voice' label per row ('N'/'S')."""
     voice = np.empty(len(df), dtype=object)
     idx = 0
     for _poem, g in df.groupby(["poem", "book_no"], sort=False):
-        in_speech = False
-        for _, row in g.iterrows():
-            t = row.text_norm
-            intro = is_intro(t)
-            if in_speech:
-                if is_resumption(t):
-                    voice[idx] = "N"          # narrator resumes on this line
-                    in_speech = intro          # a new speech may open immediately
-                elif intro:
-                    voice[idx] = "N"          # a reply frame: narration line that
-                    in_speech = True           # closes this speech and opens the next
-                else:
-                    voice[idx] = "S"
-            else:
-                voice[idx] = "N"               # narration (incl. the intro frame)
-                if intro:
-                    in_speech = True
+        for v in tag_lines(list(g.text_norm)):
+            voice[idx] = v
             idx += 1
     return pd.Series(voice, index=df.index, name="voice")
 
