@@ -26,6 +26,9 @@ one row per verse line with three text columns: `text_raw` (verbatim), `text_dip
 (diplomatic — accents/case/elision kept; used by the syntax parser), `text_norm`
 (lowercased, accents stripped, punctuation removed, ς→σ; the default for feature runs).
 
+All Greek texts are from the [Perseus Digital Library](https://github.com/PerseusDL/canonical-greekLit)
+(TEI XML), licensed CC BY-SA.
+
 ## Pipeline
 
 | script | what it does | run |
