@@ -45,10 +45,11 @@ from viz import savefig
 TEI_NS = {"tei": "http://www.tei-c.org/ns/1.0"}
 
 # single-author calibrators vs. the two poems under test
-SINGLE_AUTHOR = {"Apollonius", "Quintus", "Hesiod"}
+SINGLE_AUTHOR = {"Apollonius", "Quintus", "Hesiod", "Aratus"}
 COLORS = {
     "Iliad": "#b5651d", "Odyssey": "#1d6fb5",
     "Apollonius": "#4a7c59", "Quintus": "#7a5c9e", "Hesiod": "#999999",
+    "Aratus": "#c86a6a",
 }
 
 
@@ -100,6 +101,8 @@ def main():
     ap.add_argument("--top_n", type=int, default=150, help="MFW features")
     ap.add_argument("--voice", choices=["all", "narration", "speech"], default="all",
                     help="restrict every work to one register before chunking")
+    ap.add_argument("--extra-calibrators", action="store_true",
+                    help="include further short single-author references (Aratus)")
     args = ap.parse_args()
     cfg = yaml.safe_load(Path(args.config).read_text())
     root = Path(args.config).resolve().parent
@@ -117,6 +120,9 @@ def main():
     works["Quintus"] = tei_lines(calib / "Quintus_Posthomerica.xml", norm_cfg)
     works["Hesiod"] = (tei_lines(calib / "Hesiod_Theogony.xml", norm_cfg)
                        + tei_lines(calib / "Hesiod_WorksDays.xml", norm_cfg))
+    if getattr(args, "extra_calibrators", False):
+        # further single-author single-work references (short; opt-in)
+        works["Aratus"] = tei_lines(calib / "Aratus_Phaenomena.xml", norm_cfg)
 
     # optional register filter (same speech tagger applied to every work)
     vsuffix = ""
