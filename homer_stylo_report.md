@@ -2,13 +2,13 @@
 
 ### A computational-stylometric investigation of the Iliad and Odyssey
 
-*Project report · Phases 0–3 (corpus, EDA, within-book analysis, clustering, narrator/speech split) · Fada · July 2026*
+*Project report · Phases 0–5 (corpus, EDA, within-book analysis, narrator/speech split, and a calibrated test for authorial plurality across word-frequency and metre) · Fada · July 2026*
 
 ---
 
 ## Abstract
 
-This project asks whether Homer's verse is the work of a single poetic voice or of many. The working corpus is the Greek text of both poems (27,794 verse lines, ~199k tokens) from the Perseus Digital Library. Rather than compare the two poems to each other, the emphasis is on detecting plurality of voice **within** the text. Four results anchor the report. A book-level **particle profile** and **formularity** both distinguish the poems, but the second is confounded with content and, as clustering shows, much of the apparent poem gap is an artefact of the two source editions rather than deep style. The strongest finding is internal: a **within-book seam detector independently rediscovers the Shield of Achilles and the Catalogue of Ships** as the passages most distinct from their surroundings. Finally, a **narrator vs. character-speech split** (50% of lines are direct speech) lets us strip out register: run on narration alone, the Shield seam **survives**, which is the kind of evidence a search for more than one Homer needs. All findings are exploratory; the plan sets out calibration and orthogonal signals as the next steps.
+This project asks whether Homer's verse is the work of a single poetic voice or of many. The working corpus is the Greek text of both poems (27,794 verse lines, ~199k tokens) from the Perseus Digital Library. Rather than compare the two poems to each other, the emphasis is on detecting plurality of voice **within** the text. Four results anchor the report. A book-level **particle profile** and **formularity** both distinguish the poems, but the second is confounded with content and, as clustering shows, much of the apparent poem gap is an artefact of the two source editions rather than deep style. The strongest finding is internal: a **within-book seam detector independently rediscovers the Shield of Achilles and the Catalogue of Ships** as the passages most distinct from their surroundings. Finally, a **narrator vs. character-speech split** (50% of lines are direct speech) lets us strip out register: run on narration alone, the Shield seam **survives**, so it is a shift in the narrating voice, not a speech artefact. The project's headline comes from a **calibrated test**: measured against Apollonius, Quintus and Hesiod, both poems are **more internally variable than any single-author benchmark** (the Iliad most, and robustly across three controls — length, register via a narration-only rerun, and content via a metrical channel that scans 92–95% of lines), yet that variation is **diffuse, not a clean split** into separable hands. So there is more than one Homer in the weak sense — heterogeneous, layered composition beyond what one poet produces — but not in the strong sense of discrete, identifiable authors.
 
 ## 1  Research question and design
 
@@ -188,26 +188,65 @@ The split's payoff is that a seam can now be tested on the narrating voice alone
 
 The tagger is a formula-based heuristic that favours **precision over recall**. Speeches opened by a plain lexical verb rather than a reply frame — prayers (ἠρᾶτο), commands (μῦθον ἔτελλε), the first plea of a scene (λίσσετο) — are missed and stay labelled narration (Chryses' public plea in Iliad 1 is one such case). The narration stratum therefore carries a little residual scene-opening speech, and the reported speech share is a **lower bound**. This is a metric limitation to keep in view when reading the stratified results, and a candidate for a trained tagger in future work.
 
-## 6  Interim interpretation
+## 6  Is there more than one Homer? — a calibrated answer
 
-The cross-poem signals are the weakest ground: richness is a null, formularity is content-bound, and clustering shows the crisp character-level poem split is largely an edition artefact, with only a modest difference at the word level. The centre of gravity is inside the text. The within-book seam detector recovers the Shield and the Catalogue unprompted, and — the key new result — the Shield seam **persists once speech is stripped out**, so it reflects the narrating voice rather than register. This is the most promising lead for the “more than one Homer” question, though it remains a lead: a distinctive stretch is not yet a demonstrated second hand.
+This is the question the project is built toward, and it cannot be answered by finding a seam alone: a single poet writing a battle, a simile and a shield-description varies too. The test is therefore **calibrated** — each poem is split into equal 400-line chunks, each chunk is described by a 150-word most-frequent-word profile, and the **internal dispersion** (mean pairwise Burrows's Delta among a work's own chunks) is compared against known single-author hexameter epics: Apollonius' *Argonautica*, Quintus' *Posthomerica*, and Hesiod. Features are standardised with equal weight per work so the majority text cannot look artificially cohesive, and — critically — comparing *within-work* spread sidesteps the edition problem entirely.
+
+| Work | Type | Chunks | Internal dispersion | Best 2-cluster silhouette |
+|---|---|---|---|---|
+| **Iliad** | under test | 39 | **1.36** | 0.14 |
+| **Odyssey** | under test | 30 | **1.27** | 0.09 |
+| Apollonius | single author | 14 | 0.92 | 0.08 |
+| Quintus | single author | 22 | 1.08 | 0.09 |
+| Hesiod | single author | 4 | 1.24 | 0.17 |
+
+*Table 8. Internal stylistic dispersion of the two poems against known single-author epics.*
+
+![Figure 11. Internal dispersion of the two poems vs. single-author hexameter epics (higher = more internally variable).](figures/calibration_dispersion.png)
+
+*Figure 11. Internal dispersion of the two poems vs. single-author hexameter epics (higher = more internally variable).*
+
+![Figure 12. Every 400-line chunk in stylistic space: the single-author works form compact clouds; the Iliad and Odyssey are diffuse.](figures/calibration_mds.png)
+
+*Figure 12. Every 400-line chunk in stylistic space: the single-author works form compact clouds; the Iliad and Odyssey are diffuse.*
+
+**The answer has two parts.** First, both poems are **more internally variable than any single-author benchmark**: the Iliad's dispersion (1.36) and the Odyssey's (1.27) both exceed Apollonius (0.92) and Quintus (1.08), the Iliad most of all. This holds under a length-matched control (restricting Homer to Apollonius- and Quintus-sized windows leaves the Iliad at ~1.32 and the Odyssey at ~1.25, still well above both), so it is not an artefact of the poems' greater length. On the MDS, the single-author works are compact clouds while the Homeric chunks spread widely. This points toward **plural, layered composition rather than a single unified author** — more so in the Iliad.
+
+Second, and equally important, that variation is **diffuse, not a clean split**: neither poem divides into two (or more) separable stylistic groups any better than a single-author work does (best 2-cluster silhouettes 0.14 for the Iliad and 0.09 for the Odyssey are as low as the calibrators'). So the evidence does *not* support a tidy “books A–M by one poet, N–Z by another” partition; there is no discrete second hand to point to.
+
+**So: is there more than one Homer within each poem?** At the level stylometry can see, the honest answer is *yes in the weak sense, no in the strong sense*. Both poems carry more internal stylistic heterogeneity than a single poet produces — consistent with the oral-traditional, accreted picture of many hands over time — yet that heterogeneity does not resolve into a small number of cleanly separable authors.
+
+**Register held constant strengthens this.** The obvious objection is that the excess variation is just register — the poems mixing narration and speech more than the calibrators. Re-running the whole test on **narration only** (the same speech tagger applied to every work, speech removed) answers it: the gap *widens*. On narration alone the Iliad's dispersion rises to 1.52 and the Odyssey's to 1.49, against Apollonius 1.06 and Quintus 1.20 (Figure 13) — and the Iliad's best 2-cluster silhouette climbs to 0.20, several times the single-author baseline, hinting that its narration is not merely diffuse but carries some internal grouping. Comparing narration to narration, the Homeric narrating voice is markedly *less* uniform than these poets', so the difference is not an artefact of how much characters talk.
+
+![Figure 13. Internal dispersion on narration only: with register held constant, both poems sit further above the single-author works.](figures/calibration_dispersion_narration.png)
+
+*Figure 13. Internal dispersion on narration only: with register held constant, both poems sit further above the single-author works.*
+
+The remaining objection is **content** rather than register: even within narration the Iliad ranges over more varied matter (battle, catalogue, ekphrasis, simile, divine council) than the calibrators attempt, and subject matter leaks faintly into word frequencies. This is what **metre** adjudicates, since a poet's distribution of dactyls and spondees is largely independent of what a passage is about. Scanning every line into its dactyl/spondee foot-pattern (92–95% of lines scan) and repeating the dispersion test on these metrical profiles gives the **same verdict on a content-free channel**: the Iliad (1.35) and Odyssey (1.35) are both more metrically variable than the unified single-author epics Apollonius (1.02) and Quintus (0.90) — as varied, in fact, as two distinct Hesiodic poems combined (Figure 14).
+
+![Figure 14. Internal dispersion on metre (dactyl/spondee foot-patterns), a content-free channel. Both poems exceed the unified single-epic level; “Hesiod” combines two separate poems.](figures/metre_dispersion.png)
+
+*Figure 14. Internal dispersion on metre (dactyl/spondee foot-patterns), a content-free channel. Both poems exceed the unified single-epic level; “Hesiod” combines two separate poems.*
+
+With **register** controlled (the narration-only test) and now **content** largely controlled (metre) both pointing the same way, the “one versatile hand over varied matter” explanation is substantially weakened. The evidence converges: the Iliad and Odyssey carry more internal stylistic *and* metrical variability than epics we know to be by a single author — real compositional plurality — while still not resolving into a few cleanly separable hands. Two honest reservations remain: metre is not perfectly content-free (formula and dialect choices carry metrical shape), and the plurality is diffuse, so this is strong convergent evidence for “many Homers” in the layered, traditional sense rather than a demonstration of a countable number of poets.
 
 ## 7  Limitations
 
 - **Mixed editions.** The Iliad (Monro–Allen) and Odyssey (Murray) come from different editors, so cross-poem differences may be partly editorial; §4.5 shows this directly. Within-text results are unaffected.
 - **Speech-tagger recall.** The narrator/speech split is precision-favouring and misses lexically-opened speeches, so the narration stratum holds some residual speech and the speech share is a lower bound (§5.4).
 - **Change-point sensitivity.** The seam detector's output depends on a penalty and on window resolution; boundaries should be read together with the continuous curve and heatmap, not as hard claims.
-- **Surface forms only.** No lemmatisation, part-of-speech, syntax, or metre yet, so morphology and the orthogonal metrical signal are unexploited; a few particles are ambiguous once accents are stripped.
-- **No calibration.** Within-text distances are not yet benchmarked against genuine between-author distances, so their magnitude cannot yet be interpreted — the deepest gap.
+- **Surface forms only.** No lemmatisation, part-of-speech, or syntax yet, so morphology and the syntactic signal are unexploited (metre is now used, §6); a few particles are ambiguous once accents are stripped.
+- **What calibration can and cannot settle.** [§6.] The calibrated test supplies the single-author baseline the project lacked; the register objection is answered by the narration-only rerun and the content objection by the metrical rerun, both of which keep the two poems above the single-epic level. The residual reservations: metre is not perfectly content-free (formula and dialect choices carry metrical shape), ambiguous vowels are resolved dactyl-first (a uniform bias that cancels in the comparison but is a simplification), “Hesiod” combines two separate poems, and the Odyssey's narration is too short for the longest length-matched window.
 
 ## 8  Plan for continuation
 
-1. **Systematic within-narration seam scan.** Extend the Iliad-18 probe to every book on the narration stratum, cataloguing seams that survive speech removal — the direct hunt for internal plurality.
-2. **Calibration with an anchor corpus.** Run known single-author hexameter (Apollonius, Quintus) and other archaic verse (Hesiod, the Hymns) through the same pipeline, so within-text seam magnitudes can be judged against real between-author differences; include sanity checks (a single-author work must look seamless; a stitched pseudo-corpus must show a seam).
-3. **Orthogonal signals — metre and syntax.** Add hexameter scansion (foot shapes, caesura, bridges) and dependency-syntax features; metre is a content-free channel, so agreement with the word level is strong evidence.
-4. **Elision-aware normalisation + lemmatisation** to remove orthographic noise and reduce sparsity.
-5. **A single edition for both poems**, so any residual cross-poem work is free of the orthographic confound §4.5 exposes.
-6. **Statistical endpoint.** A hierarchical (Dirichlet-process) mixture returning a posterior over the number of distinguishable voices, with a sensitivity analysis — a map of what the data support, not a headcount.
+The narration-only calibration and the metrical test (§6) are now done and close the register and content objections; the remaining steps add a second content-free channel, locate the passages responsible, and turn the answer from a verdict into a probability.
+
+1. **Syntax — the second content-free channel.** Parse the poems with a dependency model (Perseus/CLTK Greek treebanks) and rerun the §6 dispersion test on syntactic features (dependency-relation and part-of-speech n-grams). Syntax, like metre, is largely content-independent; agreement with the metrical result would make the plurality reading very hard to explain away as varied subject matter.
+2. **Systematic within-narration seam scan.** Extend the Iliad-18 probe to every book on the narration stratum, cataloguing seams that survive speech removal and locating the specific passages that drive the elevated dispersion — turning the global “more variable” result into a map of *where*.
+3. **More single-author calibrators** (Callimachus' *Hymns*, the *Homeric Hymns*, Nonnus) to tighten the baseline and its uncertainty, and to replace the two-poem Hesiod reference with unified single works.
+4. **Elision-aware normalisation + lemmatisation** to remove orthographic noise and sharpen the metrical scansion (fewer unscanned lines).
+5. **Statistical endpoint.** A hierarchical (Dirichlet-process) mixture over chunks — combining the word, metre and syntax channels — returning a posterior over the number of distinguishable voices with a sensitivity analysis, so “diffuse vs. discrete” becomes a calibrated probability rather than a verdict.
 
 ## References
 
