@@ -27,6 +27,7 @@ Run:  python src/metre.py --config config.yaml [--voice narration]
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -35,7 +36,9 @@ import yaml
 import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
+from sklearn.manifold import MDS
 
+from corpus import normalize_line
 from speech_split import tag_lines
 from viz import savefig
 from calibrate import tei_lines, balanced_zscore, delta_matrix, COLORS, SINGLE_AUTHOR
@@ -48,32 +51,52 @@ DOUBLE = set("ζξψ")
 STOPS = set("βγδπτκφθχ")
 LIQ = set("λρ")
 CONS = set("βγδζθκλμνξπρστφχψ")
+# postpositives (enclitics/particles that lean back): a caesura cannot fall
+# before them, so a word-break immediately before one is not a real pause.
+POSTPOS = {"δε", "τε", "γε", "ρα", "αρα", "γαρ", "μεν", "μην", "δη", "τοι",
+           "κεν", "κε", "αν", "νυ", "νυν", "περ", "θην", " κε"}
 
 
 def segments(text):
-    """Split a line into (nucleus, following-consonant-string) pairs."""
-    s = [c for c in text.replace(" ", "") if c in VOWELS or c in CONS]
-    out, i, n = [], 0, len(s)
-    while i < n:
-        if s[i] in VOWELS:
-            if i + 1 < n and (s[i] + s[i + 1]) in DIPH:
-                nuc = s[i] + s[i + 1]; i += 2
+    """Nuclei, the consonant gaps between them, and word-final flags.
+
+    Gaps span word boundaries (needed for length-by-position); wbreak[k] marks
+    whether nucleus k is the last syllable of its word (needed for caesura)."""
+    seq = []  # (char, word_index, starts_word)
+    for wi, w in enumerate(text.split()):
+        for i, ch in enumerate(w):
+            if ch in VOWELS or ch in CONS:
+                seq.append((ch, wi, i == 0))
+    words = text.split()
+    nuclei, gaps, wbreak, widx = [], [], [], []
+    pend, pend_break = [], False
+    j, L = 0, len(seq)
+    while j < L:
+        ch, wi, ws = seq[j]
+        if ch in VOWELS:
+            if j + 1 < L and seq[j + 1][0] in VOWELS and (ch + seq[j + 1][0]) in DIPH:
+                nuc = ch + seq[j + 1][0]; j += 2
             else:
-                nuc = s[i]; i += 1
-            j = i
-            while j < n and s[j] in CONS:
-                j += 1
-            out.append((nuc, "".join(s[i:j])))
-            i = j
+                nuc = ch; j += 1
+            if nuclei:                       # close the previous nucleus's gap
+                gaps.append("".join(pend))
+                wbreak.append(pend_break or ws)   # word ended before this nucleus
+            nuclei.append(nuc); widx.append(wi)
+            pend, pend_break = [], False
         else:
-            i += 1  # leading consonants before first vowel (attach to nothing)
-    return out
+            pend.append(ch)
+            pend_break = pend_break or ws
+            j += 1
+    gaps.append("".join(pend))               # trailing consonants after last nucleus
+    wbreak.append(True)                      # last nucleus ends a word (line end)
+    return words, nuclei, gaps, wbreak, widx
 
 
-def quantities(text):
-    seg = segments(text)
+def _quantities(nuclei, gaps):
     Q = []
-    for k, (nuc, gap) in enumerate(seg):
+    n = len(nuclei)
+    for k in range(n):
+        nuc, gap = nuclei[k], gaps[k]
         if len(nuc) == 2 or nuc in LONG_NAT:
             base = "L"
         elif nuc in SHORT_NAT:
@@ -82,8 +105,8 @@ def quantities(text):
             base = "A"  # α ι υ
         c = sum(2 if ch in DOUBLE else 1 for ch in gap)
         muta = len(gap) == 2 and gap[0] in STOPS and gap[1] in LIQ
-        nxt = seg[k + 1][0] if k + 1 < len(seg) else None
-        if k == len(seg) - 1:
+        nxt = nuclei[k + 1] if k + 1 < n else None
+        if k == n - 1:
             q = "L"                       # final syllable: anceps → treat long
         elif c >= 2 and not muta:
             q = "L"                       # long by position
@@ -95,6 +118,11 @@ def quantities(text):
             q = base
         Q.append(q)
     return Q
+
+
+def quantities(text):
+    _, nuclei, gaps, _, _ = segments(text)
+    return _quantities(nuclei, gaps)
 
 
 def scan(Q):
@@ -127,6 +155,59 @@ def pattern_index(feet):
     return sum((1 << i) for i, f in enumerate(feet[:4]) if f == "S")
 
 
+def caesura(feet, wbreak, widx, words):
+    """Classify the principal third-foot caesura using gender-neutral, position-
+    based names. Penthemimeral: a word ends on the long of foot 3. Trochaic: a
+    word ends after the first short of a *dactylic* foot 3. A break immediately
+    before a postpositive is not a real pause and is skipped. Else 'other'."""
+    s3 = sum(3 if f == "D" else 2 for f in feet[:2])   # index of foot-3's long
+    n = len(wbreak)
+
+    def real_break(k):
+        if k + 1 >= n:
+            return False
+        nxt = widx[k + 1]
+        return not (nxt < len(words) and words[nxt] in POSTPOS)
+
+    if s3 < n and wbreak[s3] and real_break(s3):
+        return "penthemimeral"
+    if feet[2] == "D" and s3 + 1 < n and wbreak[s3 + 1] and real_break(s3 + 1):
+        return "trochaic"
+    return "other"
+
+
+def foot_start(feet, f):
+    """Syllable index at which foot f (1-based) begins."""
+    return sum(3 if x == "D" else 2 for x in feet[:f - 1])
+
+
+def line_metrics(text):
+    """Full metrical description of one line: feet pattern, caesura, spondaic
+    fifth foot, Hermann's-Bridge violation, bucolic diaeresis. All content-free."""
+    words, nuclei, gaps, wbreak, widx = segments(text)
+    feet = scan(_quantities(nuclei, gaps))
+    if feet is None:
+        return None
+    caes = caesura(feet, wbreak, widx, words)
+    n = len(wbreak)
+    spondaic5 = feet[4] == "S"
+    # Hermann's Bridge: no word-end after the first short of a dactylic 4th foot
+    s4 = foot_start(feet, 4)
+    hermann = feet[3] == "D" and s4 + 1 < n and wbreak[s4 + 1]
+    # bucolic diaeresis: word-end at the end of foot 4 (start of foot 5 minus 1)
+    s5 = foot_start(feet, 5)
+    bucolic = s5 - 1 < n and wbreak[s5 - 1]
+    return {"feet": feet, "caesura": caes, "spondaic5": spondaic5,
+            "hermann": hermann, "bucolic": bucolic}
+
+
+def scan_line_full(text):
+    """Return (feet-1–5 pattern or None, caesura label or None)."""
+    words, nuclei, gaps, wbreak, widx = segments(text)
+    feet = scan(_quantities(nuclei, gaps))
+    return feet, (caesura(feet, wbreak, widx, words) if feet is not None else None)
+
+
 def scan_lines(lines):
     """Return (patterns list with None for failures, scansion rate)."""
     pats = [scan(quantities(ln)) for ln in lines]
@@ -145,6 +226,31 @@ def chunk_profiles(pats, size):
         if v.sum() > 0:
             v /= v.sum()
         profs.append(v)
+    return profs
+
+
+def rich_profiles(lines, size):
+    """Enriched content-free metrical profile per `size`-line chunk: the 16
+    foot-patterns plus penthemimeral/trochaic caesura rates, spondaic-fifth rate,
+    Hermann's-Bridge-violation rate and bucolic-diaeresis rate."""
+    mets = [line_metrics(ln) for ln in lines]
+    profs = []
+    for i in range(0, len(mets) - size + 1, size):
+        block = [m for m in mets[i:i + size] if m is not None]
+        if not block:
+            profs.append(np.zeros(21)); continue
+        pat = np.zeros(16)
+        for m in block:
+            pat[pattern_index(m["feet"])] += 1
+        pat /= pat.sum()
+        extra = np.array([
+            np.mean([m["caesura"] == "penthemimeral" for m in block]),
+            np.mean([m["caesura"] == "trochaic" for m in block]),
+            np.mean([m["spondaic5"] for m in block]),
+            np.mean([m["hermann"] for m in block]),
+            np.mean([m["bucolic"] for m in block]),
+        ])
+        profs.append(np.concatenate([pat, extra]))
     return profs
 
 
@@ -253,6 +359,77 @@ def main():
               f"({'ABOVE' if d > unified_hi else 'within'} the unified single-epic level)")
     print(f"\nWrote {tables/f'metre_summary{vsuffix}.csv'} and "
           f"{figures/f'metre_dispersion{vsuffix}.png'}")
+
+    # ── caesura + other content-free metrical laws (formal features) ──
+    caes_rows = []
+    for name in order:
+        counts = {"penthemimeral": 0, "trochaic": 0, "other": 0}
+        sp5 = herm = buc = tot = 0
+        for ln in works[name]:
+            m = line_metrics(ln)
+            if m is None:
+                continue
+            counts[m["caesura"]] += 1
+            sp5 += m["spondaic5"]; herm += m["hermann"]; buc += m["bucolic"]; tot += 1
+        tot = tot or 1
+        caes_rows.append({"work": name, "single_author": name in SINGLE_AUTHOR,
+                          "scanned_lines": tot,
+                          "penthemimeral": round(counts["penthemimeral"] / tot, 3),
+                          "trochaic": round(counts["trochaic"] / tot, 3),
+                          "other": round(counts["other"] / tot, 3),
+                          "spondaic_5th": round(sp5 / tot, 3),
+                          "hermann_violation": round(herm / tot, 4),
+                          "bucolic_diaeresis": round(buc / tot, 3)})
+    caes = pd.DataFrame(caes_rows)
+    caes.to_csv(tables / f"caesura_summary{vsuffix}.csv", index=False)
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    op = ["Iliad", "Odyssey", "Apollonius", "Quintus", "Hesiod"]
+    lbl = {"Hesiod": "Hesiod\n(2 poems)"}
+    ci = caes.set_index("work")
+    tro = [ci.loc[w, "trochaic"] for w in op]
+    pen = [ci.loc[w, "penthemimeral"] for w in op]
+    oth = [ci.loc[w, "other"] for w in op]
+    x = np.arange(len(op))
+    ax.bar(x, tro, label="trochaic caesura", color="#6a51a3")
+    ax.bar(x, pen, bottom=tro, label="penthemimeral caesura", color="#d1913c")
+    ax.bar(x, oth, bottom=[t + p for t, p in zip(tro, pen)], label="other", color="#bbbbbb")
+    ax.set_xticks(x); ax.set_xticklabels([lbl.get(w, w) for w in op])
+    ax.set_ylabel("share of scanned lines"); ax.set_ylim(0, 1)
+    ax.set_title("Where the line breaks: principal caesura by poet\n"
+                 "(Homer's ~54% trochaic share matches the hand-counted figure)", fontsize=11)
+    ax.legend(fontsize=9, loc="lower right")
+    savefig(fig, figures, f"caesura_types{vsuffix}")
+
+    print("\n=== CAESURA & METRICAL LAWS (content-free formal features) ===")
+    print(caes.to_string(index=False))
+    print(f"Wrote {tables/f'caesura_summary{vsuffix}.csv'} and "
+          f"{figures/f'caesura_types{vsuffix}.png'}")
+
+    # ── enriched content-free metre channel: does the plurality result hold? ──
+    rprofs, rowner = [], []
+    for name in order:
+        for v in rich_profiles(works[name], args.size):
+            rprofs.append(v); rowner.append(name)
+    rowner = np.array(rowner)
+    RZ = balanced_zscore(np.vstack(rprofs), rowner, order)
+    RD = delta_matrix(RZ)
+    print("\n=== ENRICHED METRE (foot-patterns + caesura + bridges): dispersion ===")
+    r_disp = {}
+    for name in order:
+        idx = np.where(rowner == name)[0]
+        w = RD[np.ix_(idx, idx)][np.triu_indices(len(idx), 1)]
+        r_disp[name] = float(w.mean())
+    r_unified = max(r_disp["Apollonius"], r_disp["Quintus"])
+    for name in order:
+        tag = ""
+        if name in ("Iliad", "Odyssey"):
+            tag = " ABOVE" if r_disp[name] > r_unified else " within"
+            tag += " unified single-epic level"
+        print(f"  {name:11s} {r_disp[name]:.4f}{tag}")
+    pd.DataFrame([{"work": k, "enriched_metre_dispersion": round(v, 4)}
+                 for k, v in r_disp.items()]).to_csv(
+        tables / f"metre_rich_summary{vsuffix}.csv", index=False)
 
 
 if __name__ == "__main__":
