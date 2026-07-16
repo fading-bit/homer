@@ -4,3 +4,4 @@ outputs/
 .DS_Store
 */__pycache__/
 */arc/*
+homer_stylo_report.md

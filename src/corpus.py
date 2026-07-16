@@ -1,5 +1,5 @@
 """
-corpus_tei.py — Phase 0 variant: ingest Perseus TEI XML.
+corpus.py — Phase 0 variant: ingest Perseus TEI XML.
 
 Reads the canonical Perseus TEI XML files (Monro-Allen OCT edition) and
 produces the same tidy line-level table as corpus.py:

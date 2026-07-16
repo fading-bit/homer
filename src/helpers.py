@@ -1,6 +1,4 @@
 """
-helpers.py — Phase 0 of the homer-stylo pipeline.
-
 Turns raw EPUB files into a tidy, line-level table:
 
     poem | role | book_label | book_no | line_no | text_raw | text_dip | text_norm

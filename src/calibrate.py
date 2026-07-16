@@ -2,10 +2,9 @@
 calibrate.py — Is there more than one Homer WITHIN the Iliad / within the Odyssey?
 
 A stylometric "seam" inside a poem is uninterpretable on its own: a single poet
-writing a battle, a simile and a shield-description will vary too. The only way
-to give the question an answer is to CALIBRATE — to ask whether each poem's
-internal stylistic variation is larger than what known single-author hexameter
-epics show.
+writing a battle, a simile and a shield-description will vary too, hence calibration
+needed and to ask whether each poem's internal stylistic variation is larger than 
+what known single-author hexameter epics show.
 
 Method:
   * Split every poem into equal 400-line chunks.

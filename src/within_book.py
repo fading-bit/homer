@@ -11,12 +11,11 @@ For one book it produces:
   * change points detected with `ruptures`, mapped back to line numbers.
 Across all books it produces an internal-heterogeneity ranking.
 
-IMPORTANT caveat, baked into the framing: within a book, content and register
+Within a book, content and register
 (narration vs. speech) churn constantly, so the rolling signal partly tracks
 those rather than authorship. Features are therefore content-light (character
 n-grams by default, or function words); genuine authorial seams need the later
-narrator/speech split to disentangle. Read peaks as "something changes here",
-not "a different poet wrote here".
+narrator/speech split to disentangle.
 
 Run one book:   python src/within_book.py --poem iliad   --book 2
 Run all books:  python src/within_book.py --all

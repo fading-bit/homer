@@ -3,7 +3,7 @@
 # Every choice that could affect results lives here so runs are reproducible.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Where the source EPUBs live and which poem each is. Add/rename freely.
+# Where the source EPUBs live and which poem each is.
 # `poem` is a short label used everywhere downstream ("iliad", "odyssey", or an
 # anchor author like "apollonius"). `role` is "homer" or "anchor".
 sources:
