@@ -27,7 +27,6 @@ Run:  python src/metre.py --config config.yaml [--voice narration]
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -36,9 +35,7 @@ import yaml
 import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics import silhouette_score
-from sklearn.manifold import MDS
 
-from corpus import normalize_line
 from speech_split import tag_lines
 from viz import savefig
 from calibrate import tei_lines, balanced_zscore, delta_matrix, COLORS, SINGLE_AUTHOR
